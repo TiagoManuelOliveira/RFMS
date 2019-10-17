@@ -19,10 +19,11 @@ import random
 
 ## Argument Requirements
 
-ngstec_l = ["myseq", "hiseq", "novaseq", "iontorrent", "pacbio"]
+ngstec_l = ["Illumina-Iseq","Illumina-MiniSeq", "Illumina-MiSeq", "Illumina-HiSeq", "Illumina-NovaSeq","IT-Chip",
+            "BGI-MGISEQ-2000", "BGI-BGISEQ", "BGI-MGISEQ-T7", "PACBIO-Sequel"]
 profiles_l = ["profile1", "profile2"]
 sample_l = []
-
+orgs_sample = []
 
 ## Arguments Input
 
@@ -39,47 +40,45 @@ args = parser.parse_args()
 
 ## Files
 
-working_dir = os.path.join(os.environ.get("HOME"), ".RFMS")
-profiles_file = os.path.join(os.environ.get("HOME"),".RFMS", "profiles.ini")
-orgs_file = os.path.join(os.environ.get("HOME"),".RFMS", "orgs.ini")
-
+profiles_file = "INIs/profiles.ini"
+orgs_file = "INIs/orgs.ini"
 profiles = configparser.ConfigParser()
 profiles.read(profiles_file)
 orgs = configparser.ConfigParser()
 orgs.read(orgs_file)
 
+def profile_arg_parser(profile):
+    pass
+
+def org_arg_new(org_l):
+    pass
+
 
 def orgs_arg_parser(orgs_l):
     '''
-
     :param orgs_l:
     :return:
     '''
-    org = {}
-    if len(orgs_l) == 1:
-        pass
+    if len(orgs_l) >= 7:
+        raise ValueError("Invalid Organism Entry")
     if len(orgs_l) < 3:
-        org["seq_nr"] = orgs_l[1]
+        orgs.set(orgs_l[0], "seq_nr", "orgs_l[1]")
     if len(orgs_l) < 4:
-        org["seq_min"] = int(orgs_l[2].split(":")[0])
-        org["seq_max"] = int(orgs_l[2].split(":")[1])
+        orgs.set(orgs_l[0], "seq_min"), int(orgs_l[2].split(":")[0])
+        orgs.set(orgs_l[0], "seq_max"), int(orgs_l[2].split(":")[1])
     if len(orgs_l) < 5:
         if orgs_l[3] in sample_l:
-            org["sample_type"] = orgs_l[3]
+            orgs.set(orgs_l[0], "sample_type", orgs_l[3])
         else:
-            f"Invalid sample type"
-            return False
+            raise ValueError("Invalid Sample Type")
     if len(orgs_l) < 6:
         if len(orgs_l[4].split(":")) == 4:
-            org["A"] = orgs_l[4].split(":")[0]
-            org["T"] = orgs_l[4].split(":")[1]
-            org["G"] = orgs_l[4].split(":")[2]
-            org["C"] = orgs_l[4].split(":")[3]
+            orgs.set(orgs_l[0], "a", orgs_l[4].split(":")[0])
+            orgs.set(orgs_l[0], "t", orgs_l[4].split(":")[1])
+            orgs.set(orgs_l[0], "g", orgs_l[4].split(":")[2])
+            orgs.set(orgs_l[0], "c", orgs_l[4].split(":")[3])
     if len(orgs_l) < 7:
-        freq_reps = orgs_l[5]
-    if len(orgs_l) >= 7:
-        return False
-    return org
+        orgs.set(orgs_l[0], "freq_reps", orgs_l[5])
 
 ## main
 def arg_parser():
@@ -87,27 +86,40 @@ def arg_parser():
     Argmumentes Parser and Reader of INI files
     '''
     #TODO Add verification to the existance of output files or if they are valid
-    #TODO Add verification to the existance of specific orgs in INI file
+    ngs = args.ngs
     if args.seed:
         random.seed(args.seed)
-    if args.ngs:
-        ngs = args.ngs
-    if args.profile:
-        profile = args.profile
-    if args.org:
-        orgs_dic = {}
-        for entry in args.org:
-            org_l = entry.split(";")
-            if org_l[0] in orgs.sections():
-                orgs_arg_parser_result = orgs_arg_parser(org_l)
-                if orgs_arg_parser_result:
-                    orgs_dic[org_l[0]] = orgs_arg_parser_result
-                else:
-                    return f"Organism entry not valid"
+    if args.profie == False and args.org == False:
+        raise ValueError("Insert a Valid Profile and/or ORG type")
+    else:
+        if args.profile:
+            if args.profile in profiles.sections():
+                profile_arg_parser(args.profile)
             else:
-                return f"Organism not valid"
+                raise ValueError("Insert a Valid Profile")
+        if args.org:
+            for entry in args.org:
+                org_l = entry.split(";")
+                if org_l[0] == "new":
+                    org_arg_new(org_l)
+                elif org_l[0] in orgs.sections():
+                    orgs_arg_parser(org_l)
+                else:
+                    raise ValueError("Organism Not Valid.")
+    if args.fasta:
+        fasta = args.fasta
+    else:
+        fasta = ""
+    if args.fastq:
+        fastq = args.fastq
+    else:
+        fastq = ""
+
+
+def main():
+    arg_parser()
+    print(args)
 
 ########################################################################################################################
 if __name__ == '__main__':
-    arg_parser()
-    print(args)
+    main()
