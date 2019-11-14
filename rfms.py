@@ -9,6 +9,7 @@ __version__ = "RFMS - 0.01a"
 __maintainer__ = "Tiago Oliveira"
 __email__ = "tiagomanuel28@gmail.com"
 __status__ = "Production"
+__description__ = "Reference-free metagenomic simulator"
 
 ## Imports
 import argparse
@@ -16,6 +17,7 @@ from datetime import datetime
 import configparser # use to store profiles in INI format
 import random
 import src.sequence_generation as sequence_generation
+import multiprocessing as mp
 
 ## Argument Requirements
 ngstec_l = ["Illumina-Iseq","Illumina-MiniSeq", "Illumina-MiSeq", "Illumina-HiSeq", "Illumina-NovaSeq","IT-Chip",
@@ -28,15 +30,28 @@ orgs_sample = []
 orgs_use = []
 
 ## Arguments Input
-parser = argparse.ArgumentParser(description="Reference-free metagenomic simulator")
-parser.add_argument("-s", "--seed", action="store",help="Set simulation seed", default=False)
-parser.add_argument("-n", "--ngs", action="store", help="Type of NGS technology used", default=False, required=False, choices=ngstec_l)
-parser.add_argument("-f", "--fasta", action="store", help="Output file name for FASTA file", default=False, required=False)
-parser.add_argument("-fq", "--fastq", action="store", help="Output file name for FASTQ file", default=False, required=False)
-parser.add_argument("-o", "--org", action="append", help="Organism info -> <org>;<nr de seqs>;<SeqMin:SeqMax>;<sampleType>;<FreqsA:T:G:C>;<freq Reps>", default=False, required=False)
-parser.add_argument("-p", "--profile", choices=profiles_l, help="Use a predefined profile", default=False, action="append")
-parser.add_argument("-v", "--version", action="version", version=__version__)
-args = parser.parse_args()
+
+def arg_parser():
+    parser = argparse.ArgumentParser(prog="rfms",
+                                     description=__version__ + " - " + __description__)
+    parser.add_argument("-v", "--version", action="version", version=__version__)
+    parser.add_argument("-s", "--seed", action="store", help="Set simulation seed", default=False)
+    parser.add_argument("-t", "--threads", action="store", help="Number of threads to use. If none is inputed, program "
+                                                                "will use 1 thread", default= 1)
+    generation = parser.add_argument_group("Generation", "Arguments related to Sequence Generation")
+    generation.add_argument("-f", "--fasta", action="store", help="Output file name for FASTA file", default=False,
+                        required=False)
+    generation.add_argument("-o", "--org", action="append",
+                            help="Organism info -> <org>;<nr de seqs>;<SeqMin:SeqMax>;<sampleType>;"
+                                 "<FreqsA:T:G:C>;<freq Reps>", default=False, required=False)
+    generation.add_argument("-p", "--profile", choices=profiles_l, help="Use a predefined profile", default=False,
+                            action="append")
+    sequencing = parser.add_argument_group("Sequencing", "Arguments related to Sequencing Simulation")
+    sequencing.add_argument("-fq", "--fastq", action="store", help="Output file name for FASTQ file", default=False,
+                            required=False)
+    sequencing.add_argument("-n", "--ngs", action="store", help="Type of NGS technology used", default=False,
+                            required=False, choices=ngstec_l)
+    return parser.parse_args()
 
 ## Files
 profiles_file = "INIs/profiles.ini"
@@ -129,7 +144,7 @@ def orgs_arg_parser(orgs_l):
         if len(orgs_l[5].strip(" ")) > 0:
             orgs.set(orgs_l[0], "freq_reps", float(orgs_l[5]))
 ## main
-def arg_parser():
+def arg_handler():
     '''
     Argmumentes Parser and Reader of INI files
     :return: :ngs: str with ngs technology to be simulated
@@ -137,9 +152,20 @@ def arg_parser():
     :return :fasta: str with name of fasta file
     :return :fastq str with name of fastq file
     '''
+    args = arg_parser()
     ngs = args.ngs
     if args.seed:
         random.seed(args.seed)
+        seed = args.seed
+    else:
+        seed = random.randint(1,10**6)
+        random.seed(seed)
+    if args.threads > mp.cpu_count():
+        threads = mp.cpu_count()
+        print("Number of threads indicated exceeds number of available threads, Program will use ",
+              mp.cpu_count(), " instead")
+    else:
+        threads = args.threads
     if args.profile == False and args.org == False:
         raise ValueError("Insert a Valid Profile and/or ORG type")
     else:
@@ -164,12 +190,12 @@ def arg_parser():
         fastq = args.fastq
     else:
         fastq = "rfms_" + str(datetime.datetime.now()).replace(" ", "_")[:-10]+".fastq"
-    return (ngs, fasta, fastq)
+    return (ngs, fasta, fastq, threads)
 
 
 def main():
-    ngs, seed, fasta, fastq = arg_parser()
-    sequence_generation.simulate_sample(orgs_use, orgs, fasta)
+    ngs, seed, fasta, fastq, threads = arg_handler()
+    sequence_generation.simulate_sample(orgs_use, orgs, seed, threads, fasta)
 
 ########################################################################################################################
 if __name__ == '__main__':
