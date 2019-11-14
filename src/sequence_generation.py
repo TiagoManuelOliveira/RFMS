@@ -129,7 +129,6 @@ def simulate_sequence(prob_seq, seq_size, seed):
     :param seed: int with the seed to be used by the generator
     :return: string with the generated DNA sequence
     '''
-    start = time.time()
     random.seed(seed)
     prob_seq = prob_seq.cumsum()
     seq = ""
@@ -143,7 +142,6 @@ def simulate_sequence(prob_seq, seq_size, seed):
             seq += "C"
         elif prob >= prob_seq[2] and prob < prob_seq[3]:
             seq += "G"
-    print(str(time.time() - start) + "\n")
     return seq
 
 

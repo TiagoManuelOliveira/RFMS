@@ -31,27 +31,29 @@ orgs_use = []
 
 ## Arguments Input
 
-def arg_parser():
-    parser = argparse.ArgumentParser(prog="rfms",
-                                     description=__version__ + " - " + __description__)
-    parser.add_argument("-v", "--version", action="version", version=__version__)
-    parser.add_argument("-s", "--seed", action="store", help="Set simulation seed", default=False)
-    parser.add_argument("-t", "--threads", action="store", help="Number of threads to use. If none is inputed, program "
+
+parser = argparse.ArgumentParser(prog="rfms",description=__version__ + " - " + __description__)
+parser.add_argument("-v", "--version", action="version", version=__version__)
+parser.add_argument("-s", "--seed", action="store", help="Set simulation seed", default=False)
+parser.add_argument("-t", "--threads", action="store", help="Number of threads to use. If none is inputed, program "
                                                                 "will use 1 thread", default= 1)
-    generation = parser.add_argument_group("Generation", "Arguments related to Sequence Generation")
-    generation.add_argument("-f", "--fasta", action="store", help="Output file name for FASTA file", default=False,
+
+generation = parser.add_argument_group("Generation", "Arguments related to Sequence Generation")
+generation.add_argument("-f", "--fasta", action="store", help="Output file name for FASTA file", default=False,
                         required=False)
-    generation.add_argument("-o", "--org", action="append",
-                            help="Organism info -> <org>;<nr de seqs>;<SeqMin:SeqMax>;<sampleType>;"
-                                 "<FreqsA:T:G:C>;<freq Reps>", default=False, required=False)
-    generation.add_argument("-p", "--profile", choices=profiles_l, help="Use a predefined profile", default=False,
-                            action="append")
-    sequencing = parser.add_argument_group("Sequencing", "Arguments related to Sequencing Simulation")
-    sequencing.add_argument("-fq", "--fastq", action="store", help="Output file name for FASTQ file", default=False,
-                            required=False)
-    sequencing.add_argument("-n", "--ngs", action="store", help="Type of NGS technology used", default=False,
-                            required=False, choices=ngstec_l)
-    return parser.parse_args()
+generation.add_argument("-o", "--org", action="append",
+                        help="Organism info -> <org>;<nr de seqs>;<SeqMin:SeqMax>;<sampleType>;"
+                             "<FreqsA:T:G:C>;<freq Reps>", required=True)
+
+generation.add_argument("-p", "--profile", choices=profiles_l, help="Use a predefined profile", action="append")
+sequencing = parser.add_argument_group("Sequencing", "Arguments related to Sequencing Simulation")
+sequencing.add_argument("-fq", "--fastq", action="store", help="Output file name for FASTQ file", default=False,
+                        required=False)
+sequencing.add_argument("-n", "--ngs", action="store", help="Type of NGS technology used", default=False,
+                        required=False, choices=ngstec_l)
+
+args = parser.parse_args()
+
 
 ## Files
 profiles_file = "INIs/profiles.ini"
@@ -118,31 +120,32 @@ def orgs_arg_parser(orgs_l):
     '''
     if len(orgs_l) >= 7:
         raise ValueError("Invalid Organism Entry")
-    if len(orgs_l) < 3:
-        if len(orgs_l[1].strip(" ")) > 0:
-            orgs.set(orgs_l[0], "seq_nr", int(orgs_l[1]))
-    if len(orgs_l) < 4:
-        if len(orgs_l[2].strip(" ")) > 0:
-            orgs.set(orgs_l[0], "seq_min"), int(orgs_l[2].split(":")[0])
-            orgs.set(orgs_l[0], "seq_max"), int(orgs_l[2].split(":")[1])
-    if len(orgs_l) < 5:
-        if len(orgs_l[3].strip(" ")) > 0:
-            if orgs_l[3] in sample_l:
-                orgs.set(orgs_l[0], "sample_type", orgs_l[3])
-            else:
-                raise ValueError("Invalid Sample Type")
-    if len(orgs_l) < 6:
-        if len(orgs_l[4].strip(" ")) > 0:
-            if len(orgs_l[4].split(":")) == 4:
-                orgs.set(orgs_l[0], "a", float(orgs_l[4].split(":")[0]))
-                orgs.set(orgs_l[0], "t", float(orgs_l[4].split(":")[1]))
-                orgs.set(orgs_l[0], "g", float(orgs_l[4].split(":")[2]))
-                orgs.set(orgs_l[0], "c", float(orgs_l[4].split(":")[3]))
-            else:
-                raise ValueError("Invalid Basepair Frequencies")
-    if len(orgs_l) < 7:
-        if len(orgs_l[5].strip(" ")) > 0:
-            orgs.set(orgs_l[0], "freq_reps", float(orgs_l[5]))
+    if len(orgs_l) > 1:
+        if len(orgs_l) < 3 and len(orgs_l) > 1:
+            if len(orgs_l[1].strip(" ")) > 0:
+                orgs.set(orgs_l[0], "seq_nr", int(orgs_l[1]))
+        if len(orgs_l) < 4:
+            if len(orgs_l[2].strip(" ")) > 0:
+                orgs.set(orgs_l[0], "seq_min"), int(orgs_l[2].split(":")[0])
+                orgs.set(orgs_l[0], "seq_max"), int(orgs_l[2].split(":")[1])
+        if len(orgs_l) < 5:
+            if len(orgs_l[3].strip(" ")) > 0:
+                if orgs_l[3] in sample_l:
+                    orgs.set(orgs_l[0], "sample_type", orgs_l[3])
+                else:
+                    raise ValueError("Invalid Sample Type")
+        if len(orgs_l) < 6:
+            if len(orgs_l[4].strip(" ")) > 0:
+                if len(orgs_l[4].split(":")) == 4:
+                    orgs.set(orgs_l[0], "a", float(orgs_l[4].split(":")[0]))
+                    orgs.set(orgs_l[0], "t", float(orgs_l[4].split(":")[1]))
+                    orgs.set(orgs_l[0], "g", float(orgs_l[4].split(":")[2]))
+                    orgs.set(orgs_l[0], "c", float(orgs_l[4].split(":")[3]))
+                else:
+                    raise ValueError("Invalid Basepair Frequencies")
+        if len(orgs_l) < 7:
+            if len(orgs_l[5].strip(" ")) > 0:
+                orgs.set(orgs_l[0], "freq_reps", float(orgs_l[5]))
 ## main
 def arg_handler():
     '''
@@ -152,18 +155,15 @@ def arg_handler():
     :return :fasta: str with name of fasta file
     :return :fastq str with name of fastq file
     '''
-    args = arg_parser()
     ngs = args.ngs
     if args.seed:
-        random.seed(args.seed)
-        seed = args.seed
+        seed = int(args.seed)
+        random.seed(seed)
     else:
         seed = random.randint(1,10**6)
         random.seed(seed)
     if args.threads > mp.cpu_count():
-        threads = mp.cpu_count()
-        print("Number of threads indicated exceeds number of available threads, Program will use ",
-              mp.cpu_count(), " instead")
+        raise ValueError("Number of threads indicated exceeds number of available threads")
     else:
         threads = args.threads
     if args.profile == False and args.org == False:
@@ -185,17 +185,18 @@ def arg_handler():
     if args.fasta:
         fasta = args.fasta
     else:
-        fasta = "rfms_" + str(datetime.datetime.now()).replace(" ", "_")[:-10]+".fasta"
+        fasta = "rfms_" + str(datetime.now()).replace(" ", "_")[:-10]+".fasta"
     if args.fastq:
         fastq = args.fastq
     else:
-        fastq = "rfms_" + str(datetime.datetime.now()).replace(" ", "_")[:-10]+".fastq"
-    return (ngs, fasta, fastq, threads)
+        fastq = "rfms_" + str(datetime.now()).replace(" ", "_")[:-10]+".fastq"
+    return (ngs, seed, fasta, fastq, threads, orgs_use)
 
 
 def main():
-    ngs, seed, fasta, fastq, threads = arg_handler()
+    ngs, seed, fasta, fastq, threads, orgs_use = arg_handler()
     sequence_generation.simulate_sample(orgs_use, orgs, seed, threads, fasta)
+
 
 ########################################################################################################################
 if __name__ == '__main__':
