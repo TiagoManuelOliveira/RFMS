@@ -197,7 +197,6 @@ def main():
     ngs, seed, fasta, fastq, threads, orgs_use = arg_handler()
     sequence_generation.simulate_sample(orgs_use, orgs, seed, threads, fasta)
 
-
 ########################################################################################################################
 if __name__ == '__main__':
     main()
