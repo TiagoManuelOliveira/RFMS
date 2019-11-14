@@ -7,6 +7,7 @@ __credits__ = ["Tiago Oliveira"]
 __license__ = "GPL-3.0"
 __maintainer__ = "Tiago Oliveira"
 __email__ = "tiagomanuel28@gmail.com"
+__version__ = "0.1b"
 
 ## Imports
 import random
