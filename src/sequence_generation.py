@@ -10,10 +10,10 @@ __email__ = "tiagomanuel28@gmail.com"
 __version__ = "0.1b"
 
 ## Imports
-import random
+import random, time, tqdm, sys
 import numpy as np
 import multiprocessing as mp
-import time
+
 
 
 def generate_seed_pool(sequence_sizes, seed):
@@ -28,23 +28,15 @@ def generate_seed_pool(sequence_sizes, seed):
     '''
     np.random.seed(seed)
     orgs_seeds = []
-
     for sequence_size in sequence_sizes:
-        print(sequence_size.size)
         not_unique = True
-        not_verified = True
-        while not_unique and not_verified:
+        while not_unique:
             org_seed = np.random.randint(1, 10 ** 6, sequence_size.size)
-            not_unique = org_seed.size == np.unique(org_seed).size
-            i = 0
-            for seeds in orgs_seeds:
-                for i in seeds:
-                    if i in org_seed:
-                        i += 1
-            if i == 0:
-                not_verified = False
+            if org_seed.size == np.unique(org_seed).size:
+                not_unique=False
 
         orgs_seeds.append(org_seed)
+
     return orgs_seeds
 
 
@@ -102,24 +94,125 @@ def write_sequence(fasta, seq, org, probs, sequence_size, seed):
     :return:
     '''
     header = generate_header(org, probs, sequence_size, seed)
+    i = 80
+    while i > len(seq):
+        seq = seq[:i] + "\n" + seq[i:]
     try:
         with open(fasta, "x") as file:
             file.write(header + "\n")
+            #file.writelines(seq)
             file.write(seq)
     except:
         with open(fasta, "a") as file:
-            file.write("\n\n")
+            file.write("\n")
             file.write(header + "\n")
+            file.writelines(seq)
             file.write(seq)
 
+def reverse_complement(sequence):
+    '''
+
+    :param sequence:
+    :return:
+    '''
+    complement = {65:84,
+                  84:65,
+                  67:71,
+                  71:67}
+    new_sequence = bytearray()
+    for base in sequence:
+        new_sequence.extend(complement[base])
+    return new_sequence[::-1]
+
+def rep_sequences(sequence, reps):
+    elem, elem_reps = reps
+    elem_reps = [i for i in range(0, elem_reps)]
+    rep_seqs = {}
+    while len(elem_reps) > 0:
+        for chunk in elem:
+            for rep in chunk:
+                if rep[2] in elem_reps:
+                    if rep[4] == 0:
+                        rep_seqs[rep[2]] = sequence[rep[0]:rep[1]]
+                        rep_seqs[-int(rep[2])] = reverse_complement(rep_seqs[rep[2]])
+                        elem_reps.remove(rep[2])
+    return rep_seqs
 
 
-def simulate_reps ():
+
+def substitute_rep(sequence, list_pos):
+    '''
+    :param sequence:
+    :param list_pos:
+    :return:
+    '''
+    rep_seq = {}
+    i = 0
+    print(len(list_pos))
+    for pos in list_pos:
+        print(i)
+        i+=1
+        if pos[0] in rep_seq.keys():
+            sub_rep = False
+            if pos[3] == "-":
+                sub_rep = reverse_complement(rep_seq[pos[2]])
+            if sub_rep:
+                sequence = sequence[:pos[0]] + sub_rep + sequence[(pos[1]):]
+            else:
+                sequence = sequence[:pos[0]] + sequence[pos[0]:pos[1]] + sequence[(pos[1]):]
+
+        else:
+            rep_seq[pos[0]] = sequence[pos[0]:(pos[1])]
+    return sequence
+
+def simulate_reps_pos(sequence_sizes, orgs_use, orgs):
     '''
     simulates sequence reps
     :return:
     '''
-    pass
+    reps = {}
+    for i_org in range(0, len(orgs_use)):
+        org = orgs_use[i_org]
+        sequence_size = sequence_sizes[i_org].sum()
+        chunks = len(sequence_sizes)
+        elem_reps = random.randint(int(orgs[org]["min_rep_elem"]), int(orgs[org]["max_rep_elem"]))
+        pos = [[] for i in range(0, chunks)]
+        for elem in range(0, elem_reps):
+            rep_size = random.randint(int(orgs[org]["min_rep_size"]), int(orgs[org]["max_rep_size"]))
+            nr_reps = random.randint(int(orgs[org]["min_rep_nr"]), int(orgs[org]["max_rep_nr"]))
+            direct = False
+            for nr in range(0, nr_reps):
+                if float(orgs[org]["prob_rep_direction"]) <= random.random():
+                    direction = "+"
+                else:
+                    direction = "-"
+
+                if direct:
+                    pivot = end
+                else:
+                    pivot = random.randint(0, sequence_size-rep_size-1)
+                end = pivot + rep_size
+
+                chunk_p = pivot // 10**6
+                chunk_e = end // 10**6
+                pivot = pivot % 10 ** 6
+                end = end % 10 ** 6
+                if chunk_p == chunk_e:
+                    pos[chunk_p].append((pivot, end + 1, elem, direction, 0))
+                else:
+                    pos[chunk_p].append((pivot, 10**6 + 1, elem, direction, 1))
+                    pos[chunk_e].append(0, end + 1, elem, direction, 2)
+
+
+                if float(orgs[org]["prob_direct_rep"]) <= random.random():
+                    direct = True
+                else:
+                    direct = False
+        for i in pos:
+            random.shuffle(i)
+        reps[org] = (pos, elem_reps)
+    return reps
+
 
 def simulate_sequence(prob_seq, seq_size, seed):
     '''
@@ -131,17 +224,17 @@ def simulate_sequence(prob_seq, seq_size, seed):
     '''
     random.seed(seed)
     prob_seq = prob_seq.cumsum()
-    seq = ""
+    seq = bytearray()
     for i in range(seq_size):
         prob = random.random()
         if prob < prob_seq[0]:
-            seq += "A"
+            seq.append(65)
         elif prob >= prob_seq[0] and prob < prob_seq[1]:
-            seq += "T"
+            seq.append(84)
         elif prob >= prob_seq[1] and prob < prob_seq[2]:
-            seq += "C"
+            seq.append(67)
         elif prob >= prob_seq[2] and prob < prob_seq[3]:
-            seq += "G"
+            seq.append(71)
     return seq
 
 
@@ -158,10 +251,15 @@ def simulate_sample(orgs_use, orgs, seed, threads, fasta):
     :return: ####
     '''
     sequence_sizes = generate_sequence_size(orgs_use, orgs)
+    print("Sequence Sizes Generated")
     orgs_seeds = generate_seed_pool(sequence_sizes, seed)
-    pool = mp.Pool(threads)
-    for i_org in range(0, len(orgs_use)):
-        seq = ""
+    print("Seeds Generated")
+    #reps = simulate_reps_pos(sequence_sizes, orgs_use, orgs)
+    print("Repetitions generated")
+
+    print("Using ", threads, " threads to generate sequences")
+    for i_org in tqdm.trange(0, len(orgs_use), desc="Simulating Full Sample Sequence"):
+        pool = mp.Pool(threads)
         org = orgs_use[i_org]
         probs = np.array([float(orgs[org]["a"]), float(orgs[org]["t"]), float(orgs[org]["c"]), float(orgs[org]["g"])])
         if probs.sum() != 1.0:
@@ -171,13 +269,20 @@ def simulate_sample(orgs_use, orgs, seed, threads, fasta):
         seq = pool.starmap(simulate_sequence,
                            [(probs, sequence_sizes[i_org][i_seq], orgs_seeds[i_org][i_seq])
                             for i_seq in range(0, sequence_sizes[i_org].size)])
+        print(type(seq[0]))
 
-        seq = "".join(seq)
+        #seq = b''.join(seq).decode()
+        #rep_seqs = rep_sequences(seq, reps[org])
+        #seq = substitute_rep(seq, reps[org])
+        #print("seq_subbed")
+        pool.close()
         write_sequence(fasta, seq, org, probs, sequence_sizes[i_org].sum(), seed)
-    pool.close()
 
 
-def main ():
+    print("end simulation")
+
+
+def test ():
     import configparser
     orgs_file = "../INIs/orgs.ini"
     orgs = configparser.ConfigParser()
@@ -188,4 +293,4 @@ def main ():
 
 ########################################################################################################################
 if __name__ == '__main__':
-    main()
+    test()

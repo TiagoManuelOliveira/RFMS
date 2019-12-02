@@ -18,6 +18,7 @@ import configparser # use to store profiles in INI format
 import random
 import src.sequence_generation as sequence_generation
 import multiprocessing as mp
+import art
 
 ## Argument Requirements
 ngstec_l = ["Illumina-Iseq","Illumina-MiniSeq", "Illumina-MiSeq", "Illumina-HiSeq", "Illumina-NovaSeq","IT-Chip",
@@ -162,10 +163,10 @@ def arg_handler():
     else:
         seed = random.randint(1,10**6)
         random.seed(seed)
-    if args.threads > mp.cpu_count():
+    if int(args.threads) > mp.cpu_count():
         raise ValueError("Number of threads indicated exceeds number of available threads")
     else:
-        threads = args.threads
+        threads = int(args.threads)
     if args.profile == False and args.org == False:
         raise ValueError("Insert a Valid Profile and/or ORG type")
     else:
@@ -184,6 +185,8 @@ def arg_handler():
                 orgs_use.append(org_l[0])
     if args.fasta:
         fasta = args.fasta
+        if not str(args.fasta).endswith(".fasta"):
+            fasta += ".fasta"
     else:
         fasta = "rfms_" + str(datetime.now()).replace(" ", "_")[:-10]+".fasta"
     if args.fastq:
@@ -193,7 +196,14 @@ def arg_handler():
     return (ngs, seed, fasta, fastq, threads, orgs_use)
 
 
+def greetings():
+    greetings_text = art.text2art("RFMS","doom")
+    print(greetings_text)
+
+
+
 def main():
+    greetings()
     ngs, seed, fasta, fastq, threads, orgs_use = arg_handler()
     sequence_generation.simulate_sample(orgs_use, orgs, seed, threads, fasta)
 
