@@ -13,7 +13,9 @@ __version__ = "0.2b"
 import random, tqdm
 import numpy as np
 import multiprocessing as mp
-import bitarray
+from multiprocessing.pool import ThreadPool
+from bitarray import bitarray
+import dask
 
 #TODO: Substitutir bytearrays por bitarrays
 
@@ -207,13 +209,13 @@ def simulate_reps_pos(sequence_sizes, orgs_use, orgs):
     #TODO: Optimize this function. It takes way too much time. Maybe some paralelization
     #TODO: Function with large numbers ocupies too much space. Try to substitute some flags by boleans or bytes
     reps = {}
-    for i_org in tqdm.trange(0, len(orgs_use), desc="Simulating sequences for organisms", position=0):
+    for i_org in tqdm.trange(0, len(orgs_use), desc="Simulating reps for organisms", position=0, leave = True):
         org = orgs_use[i_org]
         sequence_size = sequence_sizes[i_org].sum()
         chunks = sequence_sizes[i_org].size
         elem_reps = random.randint(int(orgs[org]["min_rep_elem"]), int(orgs[org]["max_rep_elem"]))
         pos = [[] for i in range(0, chunks)]
-        for elem in tqdm.trange(0, elem_reps, desc="Generating repetitions information for organism", position=1):
+        for elem in tqdm.trange(0, elem_reps, desc="Generating repetitions information for organism", position=1, leave=None):
             rep_size = random.randint(int(orgs[org]["min_rep_size"]), int(orgs[org]["max_rep_size"]))
             nr_reps = random.randint(int(orgs[org]["min_rep_nr"]), int(orgs[org]["max_rep_nr"]))
             direct = False # Tandem repeat flag
@@ -250,7 +252,7 @@ def simulate_reps_pos(sequence_sizes, orgs_use, orgs):
         reps[org] = (pos, elem_reps)
     return reps
 
-
+@dask.delayed(pure=True)
 def simulate_sequence(arguments):
     '''
     Simulates a sequence from a given seed using a prob array and returns a string with a DNA sequence.
@@ -288,6 +290,9 @@ def simulate_sample(orgs_use, orgs, seed, threads, fasta, linebreak=80):
     :param fasta: string with the name of the FASTA file
     :return: Writes in a FASTA file the simulated DNA sequences
     '''
+
+    dask.config.set(pool=ThreadPool(threads))
+
     sequence_sizes = generate_sequence_size(orgs_use, orgs)
     print("Sequence Sizes Generated")
     orgs_seeds = generate_seed_pool(sequence_sizes, seed)
@@ -296,7 +301,7 @@ def simulate_sample(orgs_use, orgs, seed, threads, fasta, linebreak=80):
     print("Repetitions generated")
 
     print("Using ", threads, " threads to generate sequences")
-    for i_org in tqdm.trange(0, len(orgs_use), desc="Simulating Organism Sequence", position=0):
+    for i_org in tqdm.trange(0, len(orgs_use), desc="Simulating Organism Sequence", position=0, leave=True):
         org = orgs_use[i_org]
         pos, elem = reps[org]
         probs = np.array([float(orgs[org]["a"]), float(orgs[org]["t"]), float(orgs[org]["c"]), float(orgs[org]["g"])])
@@ -308,21 +313,37 @@ def simulate_sample(orgs_use, orgs, seed, threads, fasta, linebreak=80):
         generation_arguments = []
         for i_seq in range(0,sequence_sizes[i_org].size):
             generation_arguments.append((probs, sequence_sizes[i_org][i_seq], orgs_seeds[i_org][i_seq]))
+        '''
         with mp.Pool(threads) as pool:
             seq = list(tqdm.tqdm(pool.imap(simulate_sequence, generation_arguments),
                                  total=sequence_sizes[i_org].size, desc="Chunks of sequence simulated", position=1 ))
+        '''
+        with tqdm.tqdm(total=len(generation_arguments), desc="----->Chunks of sequence simulated", position=1, leave=False) as pbar:
+            seq = []
+
+            for arg in generation_arguments:
+                seq.append(simulate_sequence(arg).compute())
+                pbar.update(1)
 
         rep_seqs = rep_sequences(seq, reps[org])
         rep_arguments = []
         for i_rep in range(0,len(seq)):
             rep_arguments.append((seq[i_rep], pos[i_rep], elem, rep_seqs))
+
+        with tqdm.tqdm(total=len(seq), desc="----->Inserting repetitions", position=1, leave=False) as pbar:
+            new_seq = []
+            for arg in rep_arguments:
+                new_seq.append(substitute_rep(arg))
+                pbar.update(1)
+        '''
         with mp.Pool(threads) as pool:
             new_seq = list(tqdm.tqdm(pool.imap(substitute_rep, rep_arguments),
                                      total=len(seq), desc="Inserting repetitions", position=2))
+        '''
         seq = b''.join(new_seq).decode()
         write_sequence(fasta, seq, org, probs, sequence_sizes[i_org].sum(), seed, linebreak)
 
-    print("end simulation")
+    print("\nend simulation")
 
 
 def test ():
@@ -330,9 +351,10 @@ def test ():
     orgs_file = "../INIs/orgs.ini"
     orgs = configparser.ConfigParser()
     orgs.read(orgs_file)
-    seed = random.randint(1, 10 ** 6)
+    #seed = random.randint(1, 10 ** 6)
+    seed = 1000
     random.seed(seed)
-    simulate_sample(["HS", "MM"], orgs, seed, 6, "teste.fasta")
+    simulate_sample(["BS"], orgs, seed, 6, "teste.fasta")
 
 ########################################################################################################################
 if __name__ == '__main__':
