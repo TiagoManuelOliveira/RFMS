@@ -16,7 +16,7 @@ import argparse
 from datetime import datetime
 import configparser # use to store profiles in INI format
 import art
-from src.generate_profiles import profile_fasta
+from src.generate_profiles import profile_report
 
 
 parser = argparse.ArgumentParser(prog="rfms_profiling",description=__version__ + " - " + __description__)
@@ -67,4 +67,4 @@ def arg_handler():
 
 if __name__ == '__main__':
     fasta, level, output_profile, store, org_name, window, threshold, drop= arg_handler()
-    rep_sizes = profile_fasta(fasta, level, window, threshold, drop)
+    rep_sizes= profile_report(fasta, level, window, threshold, drop, multiple=True, show=True)
