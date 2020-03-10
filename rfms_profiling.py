@@ -13,7 +13,6 @@ __description__ = "Reference-free metagenomic simulator profiling tool"
 
 ## Imports
 import argparse
-from datetime import datetime
 import configparser # use to store profiles in INI format
 import art
 from src.generate_profiles import profile_report
@@ -44,6 +43,10 @@ profiles.read(profiles_file)
 orgs = configparser.ConfigParser()
 orgs.read(orgs_file)
 
+def greetings():
+    greetings_text = art.text2art("RFMS\nProfiling","doom")
+    print(greetings_text)
+
 ## main
 def arg_handler():
     fasta = str(args.fasta)
@@ -66,5 +69,6 @@ def arg_handler():
     return fasta, level, output_profile, store, org_name, window, threshold, drop
 
 if __name__ == '__main__':
+    greetings()
     fasta, level, output_profile, store, org_name, window, threshold, drop= arg_handler()
     rep_sizes= profile_report(fasta, level, window, threshold, drop, multiple=True, show=True)
